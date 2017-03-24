@@ -1,0 +1,6 @@
+package: github.com/kubermatic/kube-machine-controller
+import:
+- package: github.com/docker/machine
+  version: ~0.10.0
+- package: k8s.io/client-go
+  version: ~2.0.0

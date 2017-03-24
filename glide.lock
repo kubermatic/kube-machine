@@ -1,0 +1,8 @@
+hash: 6ecf23d6d6628e47364f37a53d1a36af9456b5d3a0590502ae9f250794f4382b
+updated: 2017-03-24T15:41:17.214707014+01:00
+imports:
+- name: github.com/docker/machine
+  version: 76ed2a62eabf714bf0a842cda780b034eb0b21c0
+- name: k8s.io/client-go
+  version: e121606b0d09b2e1c467183ee46217fa85a6b672
+testImports: []
