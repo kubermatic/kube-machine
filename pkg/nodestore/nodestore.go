@@ -7,8 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -112,32 +113,29 @@ func (s NodeStore) Remove(name string) error {
 }
 
 func (s NodeStore) List() ([]string, error) {
-	dir, err := ioutil.ReadDir(s.GetMachinesDir())
-	if err != nil && !os.IsNotExist(err) {
+	nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kube-machine=true"})
+	if err != nil {
 		return nil, err
 	}
 
 	hostNames := []string{}
-
-	for _, file := range dir {
-		if file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
-			hostNames = append(hostNames, file.Name())
-		}
+	for i := range nodes.Items {
+		node := &nodes.Items[i]
+		hostNames = append(hostNames, node.Name)
 	}
 
 	return hostNames, nil
 }
 
 func (s NodeStore) Exists(name string) (bool, error) {
-	_, err := os.Stat(filepath.Join(s.GetMachinesDir(), name))
-
-	if os.IsNotExist(err) {
+	_, err := s.Client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
 		return false, nil
-	} else if err == nil {
-		return true, nil
 	}
-
-	return false, err
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s NodeStore) loadConfig(h *host.Host) error {
