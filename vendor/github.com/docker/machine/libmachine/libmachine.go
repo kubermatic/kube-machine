@@ -52,7 +52,7 @@ func NewClient(baseDir, certsDir string) *Client {
 		certsDir:            certsDir,
 		IsDebug:             false,
 		SSHClientType:       ssh.External,
-		Store:               persist.NewFilestore(baseDir, certsDir, certsDir),
+		Store:               nodestore.NewNodeStore(baseDir, certsDir, certsDir),
 		clientDriverFactory: rpcdriver.NewRPCClientDriverFactory(),
 	}
 }
