@@ -24,8 +24,6 @@ import (
 	"github.com/docker/machine/libmachine/state"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/docker/machine/libmachine/version"
-
-	"github.com/kubermatic/kube-machine-controller/pkg/nodestore"
 )
 
 type API interface {
