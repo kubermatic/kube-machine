@@ -2,27 +2,58 @@ package nodestore
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/docker/machine/libmachine/host"
 	"github.com/docker/machine/libmachine/mcnerror"
+)
+
+var (
+	kubeconfig = flag.String("kubeconfig", "./config", "absolute path to the kubeconfig file")
 )
 
 type NodeStore struct {
 	Path             string
 	CaCertPath       string
 	CaPrivateKeyPath string
+	Client           kubernetes.Interface
 }
 
 func NewNodeStore(path, caCertPath, caPrivateKeyPath string) *NodeStore {
+	var (
+		err    error
+		config *rest.Config
+	)
+	if _, err := os.Stat(*kubeconfig); os.IsNotExist(err) {
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			panic(err.Error())
+		}
+	} else {
+		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+
 	return &NodeStore{
 		Path:             path,
 		CaCertPath:       caCertPath,
 		CaPrivateKeyPath: caPrivateKeyPath,
+		Client:           client,
 	}
 }
 
