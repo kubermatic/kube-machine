@@ -41,7 +41,7 @@ type Client struct {
 	IsDebug        bool
 	SSHClientType  ssh.ClientType
 	GithubAPIToken string
-	*persist.Filestore
+	persist.Store
 	clientDriverFactory rpcdriver.RPCClientDriverFactory
 }
 
@@ -50,10 +50,9 @@ func NewClient(storePath, certsDir string) *Client {
 		certsDir:            certsDir,
 		IsDebug:             false,
 		SSHClientType:       ssh.External,
-		Filestore:           nodestore.NewNodeStore(storePath, certsDir, certsDir),
+		Store:               nodestore.NewNodeStore(storePath, certsDir, certsDir),
 		clientDriverFactory: rpcdriver.NewRPCClientDriverFactory(),
 	}
-
 }
 
 func (api *Client) NewHost(driverName string, rawDriver []byte) (*host.Host, error) {
@@ -74,8 +73,8 @@ func (api *Client) NewHost(driverName string, rawDriver []byte) (*host.Host, err
 				CaPrivateKeyPath: filepath.Join(api.certsDir, "ca-key.pem"),
 				ClientCertPath:   filepath.Join(api.certsDir, "cert.pem"),
 				ClientKeyPath:    filepath.Join(api.certsDir, "key.pem"),
-				ServerCertPath:   filepath.Join(api.GetMachinesDir(), "server.pem"),
-				ServerKeyPath:    filepath.Join(api.GetMachinesDir(), "server-key.pem"),
+				ServerCertPath:   filepath.Join(api.certsDir, "machines", "server.pem"),
+				ServerKeyPath:    filepath.Join(api.certsDir, "machines", "server-key.pem"),
 			},
 			EngineOptions: &engine.Options{
 				InstallURL:    drivers.DefaultEngineInstallURL,
@@ -92,7 +91,7 @@ func (api *Client) NewHost(driverName string, rawDriver []byte) (*host.Host, err
 }
 
 func (api *Client) Load(name string) (*host.Host, error) {
-	h, err := api.Filestore.Load(name)
+	h, err := api.Store.Load(name)
 	if err != nil {
 		return nil, err
 	}
