@@ -24,6 +24,8 @@ import (
 	"github.com/docker/machine/libmachine/state"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/docker/machine/libmachine/version"
+
+	"github.com/kubermatic/kube-machine-controller/pkg/nodestore"
 )
 
 type API interface {
@@ -48,7 +50,7 @@ func NewClient(storePath, certsDir string) *Client {
 		certsDir:            certsDir,
 		IsDebug:             false,
 		SSHClientType:       ssh.External,
-		Filestore:           persist.NewFilestore(storePath, certsDir, certsDir),
+		Filestore:           nodestore.NewNodeStore(storePath, certsDir, certsDir),
 		clientDriverFactory: rpcdriver.NewRPCClientDriverFactory(),
 	}
 
