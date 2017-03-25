@@ -81,6 +81,7 @@ func (s NodeStore) Save(host *host.Host) error {
 	}
 
 	node, err := s.Client.CoreV1().Nodes().Get(host.Name, metav1.GetOptions{})
+	fmt.Printf("Created %v: %v", host.Name, err)
 	if err != nil && errors.IsNotFound(err) {
 		node = &kcorev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
@@ -118,7 +119,7 @@ func (s NodeStore) Remove(name string) error {
 }
 
 func (s NodeStore) List() ([]string, error) {
-	nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{ /*LabelSelector: "kube-machine=true"*/ })
+	nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: KubeMachineLabel + "=true"})
 	if err != nil {
 		return nil, err
 	}
