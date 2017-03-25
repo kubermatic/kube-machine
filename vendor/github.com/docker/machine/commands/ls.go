@@ -21,14 +21,13 @@ import (
 	"github.com/docker/machine/libmachine/mcndockerclient"
 	"github.com/docker/machine/libmachine/persist"
 	"github.com/docker/machine/libmachine/state"
-	"github.com/docker/machine/libmachine/swarm"
 	"github.com/skarademir/naturalsort"
 )
 
 const (
 	lsDefaultTimeout = 10
 	tableFormatKey   = "table"
-	lsDefaultFormat  = "table {{ .Name }}\t{{ .Active }}\t{{ .DriverName}}\t{{ .State }}\t{{ .URL }}\t{{ .Swarm }}\t{{ .DockerVersion }}\t{{ .Error}}"
+	lsDefaultFormat  = "table {{ .Name }}\t{{ .Active }}\t{{ .DriverName}}\t{{ .State }}\t{{ .URL }}\t{{ .DockerVersion }}\t{{ .Error}}"
 )
 
 var (
@@ -36,12 +35,9 @@ var (
 		"Name":          "NAME",
 		"Active":        "ACTIVE",
 		"ActiveHost":    "ACTIVE_HOST",
-		"ActiveSwarm":   "ACTIVE_SWARM",
 		"DriverName":    "DRIVER",
 		"State":         "STATE",
 		"URL":           "URL",
-		"SwarmOptions":  "SWARM_OPTIONS",
-		"Swarm":         "SWARM",
 		"EngineOptions": "ENGINE_OPTIONS",
 		"Error":         "ERRORS",
 		"DockerVersion": "DOCKER",
@@ -53,12 +49,9 @@ type HostListItem struct {
 	Name          string
 	Active        string
 	ActiveHost    bool
-	ActiveSwarm   bool
 	DriverName    string
 	State         state.State
 	URL           string
-	SwarmOptions  *swarm.Options
-	Swarm         string
 	EngineOptions *engine.Options
 	Error         string
 	DockerVersion string
@@ -67,7 +60,6 @@ type HostListItem struct {
 
 // FilterOptions -
 type FilterOptions struct {
-	SwarmName  []string
 	DriverName []string
 	State      []string
 	Name       []string
@@ -117,32 +109,7 @@ func cmdLs(c CommandLine, api libmachine.API) error {
 	timeout := time.Duration(c.Int("timeout")) * time.Second
 	items := getHostListItems(hostList, hostInError, timeout)
 
-	swarmMasters := make(map[string]string)
-	swarmInfo := make(map[string]string)
-
-	for _, host := range hostList {
-		if host.HostOptions != nil {
-			swarmOptions := host.HostOptions.SwarmOptions
-			if swarmOptions.Master {
-				swarmMasters[swarmOptions.Discovery] = host.Name
-			}
-
-			if swarmOptions.Discovery != "" {
-				swarmInfo[host.Name] = swarmOptions.Discovery
-			}
-		}
-	}
-
 	for _, item := range items {
-		swarmColumn := ""
-		if item.SwarmOptions != nil && item.SwarmOptions.Discovery != "" {
-			swarmColumn = swarmMasters[item.SwarmOptions.Discovery]
-			if item.SwarmOptions.Master {
-				swarmColumn = fmt.Sprintf("%s (master)", swarmColumn)
-			}
-		}
-		item.Swarm = swarmColumn
-
 		if err := template.Execute(w, item); err != nil {
 			return err
 		}
@@ -186,8 +153,6 @@ func parseFilters(filters []string) (FilterOptions, error) {
 		key, value := strings.ToLower(kv[0]), kv[1]
 
 		switch key {
-		case "swarm":
-			options.SwarmName = append(options.SwarmName, value)
 		case "driver":
 			options.DriverName = append(options.DriverName, value)
 		case "state":
@@ -204,8 +169,7 @@ func parseFilters(filters []string) (FilterOptions, error) {
 }
 
 func filterHosts(hosts []*host.Host, filters FilterOptions) []*host.Host {
-	if len(filters.SwarmName) == 0 &&
-		len(filters.DriverName) == 0 &&
+	if len(filters.DriverName) == 0 &&
 		len(filters.State) == 0 &&
 		len(filters.Name) == 0 &&
 		len(filters.Labels) == 0 {
@@ -213,51 +177,22 @@ func filterHosts(hosts []*host.Host, filters FilterOptions) []*host.Host {
 	}
 
 	filteredHosts := []*host.Host{}
-	swarmMasters := getSwarmMasters(hosts)
 
 	for _, h := range hosts {
-		if filterHost(h, filters, swarmMasters) {
+		if filterHost(h, filters) {
 			filteredHosts = append(filteredHosts, h)
 		}
 	}
 	return filteredHosts
 }
 
-func getSwarmMasters(hosts []*host.Host) map[string]string {
-	swarmMasters := make(map[string]string)
-	for _, h := range hosts {
-		if h.HostOptions != nil {
-			swarmOptions := h.HostOptions.SwarmOptions
-			if swarmOptions != nil && swarmOptions.Master {
-				swarmMasters[swarmOptions.Discovery] = h.Name
-			}
-		}
-	}
-	return swarmMasters
-}
-
-func filterHost(host *host.Host, filters FilterOptions, swarmMasters map[string]string) bool {
-	swarmMatches := matchesSwarmName(host, filters.SwarmName, swarmMasters)
+func filterHost(host *host.Host, filters FilterOptions) bool {
 	driverMatches := matchesDriverName(host, filters.DriverName)
 	stateMatches := matchesState(host, filters.State)
 	nameMatches := matchesName(host, filters.Name)
 	labelMatches := matchesLabel(host, filters.Labels)
 
-	return swarmMatches && driverMatches && stateMatches && nameMatches && labelMatches
-}
-
-func matchesSwarmName(host *host.Host, swarmNames []string, swarmMasters map[string]string) bool {
-	if len(swarmNames) == 0 {
-		return true
-	}
-	for _, n := range swarmNames {
-		if host.HostOptions != nil && host.HostOptions.SwarmOptions != nil {
-			if strings.EqualFold(n, swarmMasters[host.HostOptions.SwarmOptions.Discovery]) {
-				return true
-			}
-		}
-	}
-	return false
+	return driverMatches && stateMatches && nameMatches && labelMatches
 }
 
 func matchesDriverName(host *host.Host, driverNames []string) bool {
@@ -375,39 +310,24 @@ func attemptGetHostState(h *host.Host, stateQueryChan chan<- HostListItem) {
 		hostError = ""
 	}
 
-	var swarmOptions *swarm.Options
 	var engineOptions *engine.Options
 	if h.HostOptions != nil {
-		swarmOptions = h.HostOptions.SwarmOptions
 		engineOptions = h.HostOptions.EngineOptions
 	}
 
-	isMaster := false
-	swarmHost := ""
-	if swarmOptions != nil {
-		isMaster = swarmOptions.Master
-		swarmHost = swarmOptions.Host
-	}
-
 	activeHost := isActive(currentState, url)
-	activeSwarm := isSwarmActive(currentState, url, isMaster, swarmHost)
 	active := "-"
 	if activeHost {
 		active = "*"
-	}
-	if activeSwarm {
-		active = "* (swarm)"
 	}
 
 	stateQueryChan <- HostListItem{
 		Name:          h.Name,
 		Active:        active,
 		ActiveHost:    activeHost,
-		ActiveSwarm:   activeSwarm,
 		DriverName:    h.Driver.DriverName(),
 		State:         currentState,
 		URL:           url,
-		SwarmOptions:  swarmOptions,
 		EngineOptions: engineOptions,
 		DockerVersion: dockerVersion,
 		Error:         hostError,

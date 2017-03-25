@@ -93,12 +93,27 @@ func (s NodeStore) Save(host *host.Host) error {
 					KubeMachineLabel: "true",
 				},
 			},
+			Status: kcorev1.NodeStatus{
+				Phase: kcorev1.NodePending,
+				// The following makes the node controller to immediately remove the node:
+				/*
+					Conditions: []kcorev1.NodeCondition{
+						{
+							Type:               kcorev1.NodeReady,
+							Status:             kcorev1.ConditionFalse,
+							Reason:             "created",
+							Message:            fmt.Sprintf("created by kube-machine %v driver", host.DriverName),
+							LastTransitionTime: metav1.NewTime(time.Now()),
+							LastHeartbeatTime:  metav1.NewTime(time.Now()),
+						},
+					},
+				*/
+			},
 		}
 		_, err := s.Client.CoreV1().Nodes().Create(node)
-		if err == nil {
+		if err != nil {
 			return err
 		}
-		return err
 	} else if err != nil {
 		return err
 	} else {
