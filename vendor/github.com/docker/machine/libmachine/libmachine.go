@@ -24,6 +24,8 @@ import (
 	"github.com/docker/machine/libmachine/state"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/docker/machine/libmachine/version"
+
+	"github.com/kubermatic/kube-machine-controller/pkg/nodestore"
 )
 
 type API interface {
@@ -31,7 +33,6 @@ type API interface {
 	NewHost(driverName string, rawDriver []byte) (*host.Host, error)
 	Create(h *host.Host) error
 	persist.Store
-	GetMachinesDir() string
 }
 
 type Client struct {

@@ -231,7 +231,7 @@ func cmdCreateInner(c CommandLine, api libmachine.API) error {
 
 		vBoxLog := ""
 		if h.DriverName == "virtualbox" {
-			vBoxLog = filepath.Join(api.GetMachinesDir(), h.Name, h.Name, "Logs", "VBox.log")
+			vBoxLog = filepath.Join("~/.kube-machine", h.Name, h.Name, "Logs", "VBox.log")
 		}
 
 		return crashreport.CrashError{
