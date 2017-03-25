@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	BaseDir = os.Getenv("MACHINE_STORAGE_PATH")
+	BaseDir = os.Getenv("KUBE_MACHINE_STORAGE_PATH")
 )
 
 func GetBaseDir() string {
 	if BaseDir == "" {
-		BaseDir = filepath.Join(mcnutils.GetHomeDir(), ".docker", "machine")
+		BaseDir = filepath.Join(mcnutils.GetHomeDir(), ".kube", "machine")
 	}
 	return BaseDir
 }
