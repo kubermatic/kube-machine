@@ -130,6 +130,18 @@ var (
 			Usage: "Support extra SANs for TLS certs",
 			Value: &cli.StringSlice{},
 		},
+		cli.StringFlag{
+			EnvVar: "KUBELET_KUBECONFIG",
+			Name:   "kubelet-kubeconfig",
+			Usage:  "The kubeconfig file used by the kubelet on the new node",
+			Value:  "",
+		},
+		cli.StringFlag{
+			EnvVar: "KUBELET_BOOTSTRAP",
+			Name:   "kubelet-bootstrap",
+			Usage:  "A shell command to bootstrap the kubelet on the new node\n\n\tcurl foo bar && asdfasdf\n\n",
+			Value:  "",
+		},
 	}
 )
 
@@ -219,12 +231,6 @@ func cmdCreateInner(c CommandLine, api libmachine.API) error {
 	// driver parameters (an interface fulfilling drivers.DriverOptions,
 	// concrete type rpcdriver.RpcFlags).
 	mcnFlags := h.Driver.GetCreateFlags()
-	mcnFlags = append(mcnFlags, mcnflag.StringFlag{
-		EnvVar: "NODE_KUBECONFIG",
-		Name:   "kubelet-kubeconfig",
-		Usage:  "The kubeconfig file used by the kubelet on the new node",
-		Value:  "",
-	},)
 	driverOpts := getDriverOpts(c, mcnFlags)
 
 	if err := h.Driver.SetConfigFromFlags(driverOpts); err != nil {

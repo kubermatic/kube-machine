@@ -17,6 +17,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"github.com/docker/machine/libmachine/host"
+	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnerror"
 )
 
@@ -53,7 +54,8 @@ func NewNodeStore(path, caCertPath, caPrivateKeyPath string, kubeconfig string) 
 		}
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			panic(err.Error())
+			log.Errorf("Failed to load kubeconfig %q: %v", kubeconfig, err)
+			os.Exit(1)
 		}
 	}
 	client, err := kubernetes.NewForConfig(config)
