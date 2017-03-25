@@ -81,7 +81,6 @@ func (s NodeStore) Save(host *host.Host) error {
 	}
 
 	node, err := s.Client.CoreV1().Nodes().Get(host.Name, metav1.GetOptions{})
-	fmt.Printf("Created %v: %v", host.Name, err)
 	if err != nil && errors.IsNotFound(err) {
 		node = &kcorev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
