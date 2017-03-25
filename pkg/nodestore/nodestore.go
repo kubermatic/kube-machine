@@ -75,17 +75,6 @@ func (s NodeStore) GetMachinesDir() string {
 	return filepath.Join(s.Path, "machines")
 }
 
-func (s NodeStore) createMachineDir(name string) error {
-	hostPath := filepath.Join(s.GetMachinesDir(), name)
-
-	// Ensure that the directory we want to save to exists.
-	if err := os.MkdirAll(hostPath, 0700); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s NodeStore) Save(host *host.Host) error {
 	data, err := json.MarshalIndent(host, "", "    ")
 	if err != nil {
@@ -106,32 +95,46 @@ func (s NodeStore) Save(host *host.Host) error {
 			},
 		}
 		_, err := s.Client.CoreV1().Nodes().Create(node)
+		if err == nil {
+			return err
+		}
 		return err
 	} else if err != nil {
 		return err
+	} else {
+		if node.Annotations == nil {
+			node.Annotations = map[string]string{}
+		}
+		node.Annotations[KubeMachineAnnotationKey] = string(data)
+
+		if node.Labels == nil {
+			node.Labels = map[string]string{}
+		}
+		node.Labels[KubeMachineLabel] = "true"
+
+		_, err = s.Client.CoreV1().Nodes().Update(node)
+		if err != nil {
+			return err
+		}
 	}
 
-	if node.Annotations == nil {
-		node.Annotations = map[string]string{}
+	// Ensure that the directory we want to save to exists.
+	hostPath := filepath.Join(s.GetMachinesDir(), host.Name)
+	if err := os.MkdirAll(hostPath, 0700); err != nil {
+		return err
 	}
-	node.Annotations[KubeMachineAnnotationKey] = string(data)
 
-	if node.Labels == nil {
-		node.Labels = map[string]string{}
-	}
-	node.Labels[KubeMachineLabel] = "true"
-
-	_, err = s.Client.CoreV1().Nodes().Update(node)
-	return err
+	return nil
 }
 
 func (s NodeStore) Remove(name string) error {
+	hostPath := filepath.Join(s.GetMachinesDir(), name)
+
 	err := s.Client.CoreV1().Nodes().Delete(name, &metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 
-	hostPath := filepath.Join(s.GetMachinesDir(), name)
 	return os.RemoveAll(hostPath)
 }
 
