@@ -21,7 +21,7 @@ func usage() {
 func create() {
 	log.SetDebug(true)
 
-	client := libmachine.NewClient("/tmp/automatic", "/tmp/automatic/certs")
+	client := libmachine.NewClient("/tmp/automatic", "/tmp/automatic/certs", "")
 	defer client.Close()
 
 	hostName := "myfunhost"
@@ -69,7 +69,7 @@ func create() {
 func streaming() {
 	log.SetDebug(true)
 
-	client := libmachine.NewClient("/tmp/automatic", "/tmp/automatic/certs")
+	client := libmachine.NewClient("/tmp/automatic", "/tmp/automatic/certs", "")
 	defer client.Close()
 
 	hostName := "myfunhost"

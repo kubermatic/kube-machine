@@ -2,7 +2,6 @@ package nodestore
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,7 +27,6 @@ const (
 
 var (
 	defaultConfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	kubeconfig    = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 )
 
 type NodeStore struct {
@@ -39,21 +37,21 @@ type NodeStore struct {
 	nodes            map[string]*kcorev1.Node
 }
 
-func NewNodeStore(path, caCertPath, caPrivateKeyPath string) *NodeStore {
+func NewNodeStore(path, caCertPath, caPrivateKeyPath string, kubeconfig string) *NodeStore {
 	var (
 		err    error
 		config *rest.Config
 	)
-	if _, err := os.Stat(defaultConfig); *kubeconfig == "" && os.IsNotExist(err) {
+	if _, err := os.Stat(defaultConfig); kubeconfig == "" && os.IsNotExist(err) {
 		config, err = rest.InClusterConfig()
 		if err != nil {
 			panic(err.Error())
 		}
 	} else {
-		if *kubeconfig == "" {
-			*kubeconfig = defaultConfig
+		if kubeconfig == "" {
+			kubeconfig = defaultConfig
 		}
-		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			panic(err.Error())
 		}
