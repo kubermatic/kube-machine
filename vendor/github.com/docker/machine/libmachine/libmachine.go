@@ -24,34 +24,41 @@ import (
 	"github.com/docker/machine/libmachine/state"
 	"github.com/docker/machine/libmachine/swarm"
 	"github.com/docker/machine/libmachine/version"
+
+	"github.com/kubermatic/kube-machine-controller/pkg/nodestore"
 )
 
 type API interface {
 	io.Closer
 	NewHost(driverName string, rawDriver []byte) (*host.Host, error)
 	Create(h *host.Host) error
+	GetBaseDir() string
 	persist.Store
-	GetMachinesDir() string
 }
 
 type Client struct {
+	baseDir        string
 	certsDir       string
 	IsDebug        bool
 	SSHClientType  ssh.ClientType
 	GithubAPIToken string
-	*persist.Filestore
+	persist.Store
 	clientDriverFactory rpcdriver.RPCClientDriverFactory
 }
 
-func NewClient(storePath, certsDir string) *Client {
+func NewClient(baseDir, certsDir string) *Client {
 	return &Client{
+		baseDir:             baseDir,
 		certsDir:            certsDir,
 		IsDebug:             false,
 		SSHClientType:       ssh.External,
-		Filestore:           persist.NewFilestore(storePath, certsDir, certsDir),
+		Store:               persist.NewFilestore(baseDir, certsDir, certsDir),
 		clientDriverFactory: rpcdriver.NewRPCClientDriverFactory(),
 	}
+}
 
+func (api *Client) GetBaseDir() string {
+	return api.baseDir
 }
 
 func (api *Client) NewHost(driverName string, rawDriver []byte) (*host.Host, error) {
@@ -90,7 +97,7 @@ func (api *Client) NewHost(driverName string, rawDriver []byte) (*host.Host, err
 }
 
 func (api *Client) Load(name string) (*host.Host, error) {
-	h, err := api.Filestore.Load(name)
+	h, err := api.Store.Load(name)
 	if err != nil {
 		return nil, err
 	}
