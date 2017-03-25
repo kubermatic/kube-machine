@@ -14,12 +14,16 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	// Only required to authenticate against GKE clusters
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	"github.com/docker/machine/drivers/none"
 	"github.com/docker/machine/libmachine/host"
-	"github.com/docker/machine/libmachine/mcnerror"
 )
 
 var (
-	kubeconfig = flag.String("kubeconfig", "./config", "absolute path to the kubeconfig file")
+	defaultConfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	kubeconfig    = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 )
 
 type NodeStore struct {
@@ -34,12 +38,15 @@ func NewNodeStore(path, caCertPath, caPrivateKeyPath string) *NodeStore {
 		err    error
 		config *rest.Config
 	)
-	if _, err := os.Stat(*kubeconfig); os.IsNotExist(err) {
+	if _, err := os.Stat(defaultConfig); *kubeconfig == "" && os.IsNotExist(err) {
 		config, err = rest.InClusterConfig()
 		if err != nil {
 			panic(err.Error())
 		}
 	} else {
+		if *kubeconfig == "" {
+			*kubeconfig = defaultConfig
+		}
 		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
 		if err != nil {
 			panic(err.Error())
@@ -113,7 +120,7 @@ func (s NodeStore) Remove(name string) error {
 }
 
 func (s NodeStore) List() ([]string, error) {
-	nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kube-machine=true"})
+	nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{ /*LabelSelector: "kube-machine=true"*/ })
 	if err != nil {
 		return nil, err
 	}
@@ -172,21 +179,20 @@ func (s NodeStore) loadConfig(h *host.Host) error {
 }
 
 func (s NodeStore) Load(name string) (*host.Host, error) {
-	hostPath := filepath.Join(s.GetMachinesDir(), name)
-
-	if _, err := os.Stat(hostPath); os.IsNotExist(err) {
-		return nil, mcnerror.ErrHostDoesNotExist{
-			Name: name,
-		}
-	}
-
-	host := &host.Host{
-		Name: name,
-	}
-
-	if err := s.loadConfig(host); err != nil {
+	_, err := s.Client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
+	if err != nil {
 		return nil, err
 	}
-
-	return host, nil
+	return &host.Host{
+		Name:          name,
+		ConfigVersion: 3,
+		Driver:        none.NewDriver(name, "https://1.2.3.4:1234"),
+		DriverName:    "none",
+		HostOptions: &host.Options{
+			Driver: "none",
+			Memory: 42,
+			Disk:   1234,
+		},
+		//RawDriver: []byte("{}"),
+	}, nil
 }
