@@ -106,10 +106,9 @@ func (s NodeStore) Save(host *host.Host) error {
 			},
 		}
 		_, err := s.Client.CoreV1().Nodes().Create(node)
-		if err == nil {
+		if err != nil {
 			return err
 		}
-		return err
 	} else if err != nil {
 		return err
 	} else {
