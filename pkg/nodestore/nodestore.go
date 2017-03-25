@@ -74,6 +74,17 @@ func (s NodeStore) GetMachinesDir() string {
 	return filepath.Join(s.Path, "machines")
 }
 
+func (s NodeStore) createMachineDir(name string) error {
+	hostPath := filepath.Join(s.GetMachinesDir(), name)
+
+	// Ensure that the directory we want to save to exists.
+	if err := os.MkdirAll(hostPath, 0700); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s NodeStore) Save(host *host.Host) error {
 	data, err := json.MarshalIndent(host, "", "    ")
 	if err != nil {
@@ -114,7 +125,13 @@ func (s NodeStore) Save(host *host.Host) error {
 }
 
 func (s NodeStore) Remove(name string) error {
-	return s.Client.CoreV1().Nodes().Delete(name, &metav1.DeleteOptions{})
+	err := s.Client.CoreV1().Nodes().Delete(name, &metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	hostPath := filepath.Join(s.GetMachinesDir(), name)
+	return os.RemoveAll(hostPath)
 }
 
 func (s NodeStore) List() ([]string, error) {
