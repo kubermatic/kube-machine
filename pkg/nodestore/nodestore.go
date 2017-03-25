@@ -4,21 +4,26 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	kcorev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	// Only required to authenticate against GKE clusters
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"github.com/docker/machine/drivers/none"
 	"github.com/docker/machine/libmachine/host"
+	"github.com/docker/machine/libmachine/mcnerror"
+)
+
+const (
+	KubeMachineAnnotationKey = "node.alpha.kubernetes.io/kube-machine"
+	KubeMachineLabel         = "kube-machine"
 )
 
 var (
@@ -69,49 +74,43 @@ func (s NodeStore) GetMachinesDir() string {
 	return filepath.Join(s.Path, "machines")
 }
 
-func (s NodeStore) saveToFile(data []byte, file string) error {
-	if _, err := os.Stat(file); os.IsNotExist(err) {
-		return ioutil.WriteFile(file, data, 0600)
-	}
-
-	tmpfi, err := ioutil.TempFile(filepath.Dir(file), "config.json.tmp")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpfi.Name())
-
-	if err = ioutil.WriteFile(tmpfi.Name(), data, 0600); err != nil {
-		return err
-	}
-
-	if err = tmpfi.Close(); err != nil {
-		return err
-	}
-
-	if err = os.Remove(file); err != nil {
-		return err
-	}
-
-	if err = os.Rename(tmpfi.Name(), file); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (s NodeStore) Save(host *host.Host) error {
 	data, err := json.MarshalIndent(host, "", "    ")
 	if err != nil {
 		return err
 	}
 
-	hostPath := filepath.Join(s.GetMachinesDir(), host.Name)
-
-	// Ensure that the directory we want to save to exists.
-	if err := os.MkdirAll(hostPath, 0700); err != nil {
+	node, err := s.Client.CoreV1().Nodes().Get(host.Name, metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		node = &kcorev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: host.Name,
+				Annotations: map[string]string{
+					KubeMachineAnnotationKey: string(data),
+				},
+				Labels: map[string]string{
+					KubeMachineLabel: "true",
+				},
+			},
+		}
+		_, err := s.Client.CoreV1().Nodes().Create(node)
+		return err
+	} else if err != nil {
 		return err
 	}
 
-	return s.saveToFile(data, filepath.Join(hostPath, "config.json"))
+	if node.Annotations == nil {
+		node.Annotations = map[string]string{}
+	}
+	node.Annotations[KubeMachineAnnotationKey] = string(data)
+
+	if node.Labels == nil {
+		node.Labels = map[string]string{}
+	}
+	node.Labels[KubeMachineLabel] = "true"
+
+	_, err = s.Client.CoreV1().Nodes().Update(node)
+	return err
 }
 
 func (s NodeStore) Remove(name string) error {
@@ -127,7 +126,9 @@ func (s NodeStore) List() ([]string, error) {
 	hostNames := []string{}
 	for i := range nodes.Items {
 		node := &nodes.Items[i]
-		hostNames = append(hostNames, node.Name)
+		if _, exists := node.Annotations[KubeMachineAnnotationKey]; exists {
+			hostNames = append(hostNames, node.Name)
+		}
 	}
 
 	return hostNames, nil
@@ -144,17 +145,17 @@ func (s NodeStore) Exists(name string) (bool, error) {
 	return true, nil
 }
 
-func (s NodeStore) loadConfig(h *host.Host) error {
-	data, err := ioutil.ReadFile(filepath.Join(s.GetMachinesDir(), h.Name, "config.json"))
-	if err != nil {
-		return err
+func (s NodeStore) loadConfig(node *kcorev1.Node, h *host.Host) error {
+	data, exists := node.Annotations[KubeMachineAnnotationKey]
+	if !exists {
+		return os.ErrNotExist
 	}
 
 	// Remember the machine name so we don't have to pass it through each
 	// struct in the migration.
 	name := h.Name
 
-	migratedHost, migrationPerformed, err := host.MigrateHost(h, data)
+	migratedHost, migrationPerformed, err := host.MigrateHost(h, []byte(data))
 	if err != nil {
 		return fmt.Errorf("Error getting migrated host: %s", err)
 	}
@@ -165,10 +166,6 @@ func (s NodeStore) loadConfig(h *host.Host) error {
 
 	// If we end up performing a migration, we should save afterwards so we don't have to do it again on subsequent invocations.
 	if migrationPerformed {
-		if err := s.saveToFile(data, filepath.Join(s.GetMachinesDir(), h.Name, "config.json.bak")); err != nil {
-			return fmt.Errorf("Error attempting to save backup after migration: %s", err)
-		}
-
 		if err := s.Save(h); err != nil {
 			return fmt.Errorf("Error saving config after migration was performed: %s", err)
 		}
@@ -178,20 +175,23 @@ func (s NodeStore) loadConfig(h *host.Host) error {
 }
 
 func (s NodeStore) Load(name string) (*host.Host, error) {
-	_, err := s.Client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
+	node, err := s.Client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		return nil, mcnerror.ErrHostDoesNotExist{
+			Name: name,
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &host.Host{
-		Name:          name,
-		ConfigVersion: 3,
-		Driver:        none.NewDriver(name, "https://1.2.3.4:1234"),
-		DriverName:    "none",
-		HostOptions: &host.Options{
-			Driver: "none",
-			Memory: 42,
-			Disk:   1234,
-		},
-		//RawDriver: []byte("{}"),
-	}, nil
+
+	host := &host.Host{
+		Name: name,
+	}
+
+	if err := s.loadConfig(node, host); err != nil {
+		return nil, err
+	}
+
+	return host, nil
 }
