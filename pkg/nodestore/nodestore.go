@@ -36,6 +36,7 @@ type NodeStore struct {
 	CaCertPath       string
 	CaPrivateKeyPath string
 	Client           kubernetes.Interface
+	nodes            map[string]*kcorev1.Node
 }
 
 func NewNodeStore(path, caCertPath, caPrivateKeyPath string) *NodeStore {
@@ -134,17 +135,30 @@ func (s NodeStore) Remove(name string) error {
 	return os.RemoveAll(hostPath)
 }
 
+func (s NodeStore) Nodes() (map[string]*kcorev1.Node, error) {
+	if s.nodes == nil {
+		nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: KubeMachineLabel + "=true"})
+		if err != nil {
+			return nil, err
+		}
+		s.nodes = map[string]*kcorev1.Node{}
+		for i := range nodes.Items {
+			s.nodes[nodes.Items[i].Name] = &nodes.Items[i]
+		}
+	}
+	return s.nodes, nil
+}
+
 func (s NodeStore) List() ([]string, error) {
-	nodes, err := s.Client.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: KubeMachineLabel + "=true"})
+	nodes, err := s.Nodes()
 	if err != nil {
 		return nil, err
 	}
 
 	hostNames := []string{}
-	for i := range nodes.Items {
-		node := &nodes.Items[i]
+	for name, node := range nodes {
 		if _, exists := node.Annotations[KubeMachineAnnotationKey]; exists {
-			hostNames = append(hostNames, node.Name)
+			hostNames = append(hostNames, name)
 		}
 	}
 
@@ -152,14 +166,13 @@ func (s NodeStore) List() ([]string, error) {
 }
 
 func (s NodeStore) Exists(name string) (bool, error) {
-	_, err := s.Client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
-	if err != nil && errors.IsNotFound(err) {
-		return false, nil
-	}
+	nodes, err := s.Nodes()
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+
+	_, found := nodes[name]
+	return found, nil
 }
 
 func (s NodeStore) loadConfig(node *kcorev1.Node, h *host.Host) error {
@@ -192,8 +205,12 @@ func (s NodeStore) loadConfig(node *kcorev1.Node, h *host.Host) error {
 }
 
 func (s NodeStore) Load(name string) (*host.Host, error) {
-	node, err := s.Client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
-	if err != nil && errors.IsNotFound(err) {
+	nodes, err := s.Nodes()
+	if err != nil {
+		return nil, err
+	}
+	node, found := nodes[name]
+	if !found {
 		return nil, mcnerror.ErrHostDoesNotExist{
 			Name: name,
 		}
