@@ -65,7 +65,7 @@ func (d *ExtendedKubeProvisionerDetector) DetectProvisioner(driver drivers.Drive
 		return nil, err
 	}
 
-	return KubeletProvisionerWrapper{p, d.KubeconfigPath}, nil
+	return &KubeletProvisionerWrapper{p, d.KubeconfigPath}, nil
 }
 
 func (p *KubeletProvisionerWrapper) Provision(swarmOptions swarm.Options, authOptions auth.Options, engineOptions engine.Options) error {
@@ -90,6 +90,8 @@ func (p *KubeletProvisionerWrapper) Provision(swarmOptions swarm.Options, authOp
 	if err != nil {
 		return err
 	}
+
+	return nil
 }
 
 func (p *KubeletProvisionerWrapper) scp(data []byte, path string, chmod string) error {
@@ -102,7 +104,7 @@ func (p *KubeletProvisionerWrapper) scp(data []byte, path string, chmod string) 
 		Data64: data64,
 		Chmod:  chmod,
 	}
-	cmd := bytes.Buffer{}
+	cmd := &bytes.Buffer{}
 	cmdTmpl := template.New(`touch {{.Path}} && chmod {{.Chmod}} {{.Path}} && echo "{{.Data64}}" | base64 -d >> {{.Path}}`)
 	err := cmdTmpl.Execute(cmd, ctx)
 	if err != nil {
