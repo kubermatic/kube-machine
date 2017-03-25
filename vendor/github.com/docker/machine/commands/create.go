@@ -219,6 +219,12 @@ func cmdCreateInner(c CommandLine, api libmachine.API) error {
 	// driver parameters (an interface fulfilling drivers.DriverOptions,
 	// concrete type rpcdriver.RpcFlags).
 	mcnFlags := h.Driver.GetCreateFlags()
+	mcnFlags = append(mcnFlags, mcnflag.StringFlag{
+		EnvVar: "NODE_KUBECONFIG",
+		Name:   "kubelet-kubeconfig",
+		Usage:  "The kubeconfig file used by the kubelet on the new node",
+		Value:  "",
+	},)
 	driverOpts := getDriverOpts(c, mcnFlags)
 
 	if err := h.Driver.SetConfigFromFlags(driverOpts); err != nil {
