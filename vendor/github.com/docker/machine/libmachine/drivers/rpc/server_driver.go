@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"runtime/debug"
 
+	"github.com/codegangsta/cli"
+
 	"github.com/docker/machine/libmachine/drivers"
 	"github.com/docker/machine/libmachine/log"
 	"github.com/docker/machine/libmachine/mcnflag"
@@ -33,6 +35,7 @@ func init() {
 	gob.Register(new(mcnflag.StringFlag))
 	gob.Register(new(mcnflag.StringSliceFlag))
 	gob.Register(new(mcnflag.BoolFlag))
+	gob.Register(new(cli.StringSlice))
 }
 
 type RPCFlags struct {
