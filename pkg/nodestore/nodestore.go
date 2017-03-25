@@ -115,8 +115,7 @@ func (s NodeStore) Save(host *host.Host) error {
 }
 
 func (s NodeStore) Remove(name string) error {
-	hostPath := filepath.Join(s.GetMachinesDir(), name)
-	return os.RemoveAll(hostPath)
+	return s.Client.CoreV1().Nodes().Delete(name, &metav1.DeleteOptions{})
 }
 
 func (s NodeStore) List() ([]string, error) {
