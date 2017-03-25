@@ -158,6 +158,11 @@ func main() {
 			Usage:  "BugSnag API token for crash reporting",
 			Value:  "",
 		},
+		cli.StringFlag{
+			Name: "kubeconfig",
+			Usage: "The Kubernetes client config file to create nodes",
+			Value: "",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {

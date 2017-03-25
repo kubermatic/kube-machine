@@ -16,6 +16,8 @@ import (
 	"github.com/docker/machine/libmachine/mcnutils"
 	"github.com/docker/machine/libmachine/persist"
 	"github.com/docker/machine/libmachine/ssh"
+	"github.com/docker/machine/libmachine/provision"
+	"github.com/kubermatic/kube-machine-controller/pkg/provision"
 )
 
 const (
@@ -142,8 +144,13 @@ func runAction(actionName string, c CommandLine, api libmachine.API) error {
 
 func runCommand(command func(commandLine CommandLine, api libmachine.API) error) func(context *cli.Context) {
 	return func(context *cli.Context) {
-		api := libmachine.NewClient(mcndirs.GetBaseDir(), mcndirs.GetMachineCertDir())
+		api := libmachine.NewClient(mcndirs.GetBaseDir(), mcndirs.GetMachineCertDir(), context.GlobalString("kubeconfig"))
 		defer api.Close()
+
+		provision.SetDetector(&detector.ExtendedKubeProvisionerDetector{
+			Detector: provision.StandardDetector{},
+			KubeconfigPath: context.GlobalString("node-kubeconfig"),
+		})
 
 		if context.GlobalBool("native-ssh") {
 			api.SSHClientType = ssh.Native

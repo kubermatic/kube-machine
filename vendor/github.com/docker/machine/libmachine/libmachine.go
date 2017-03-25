@@ -46,13 +46,13 @@ type Client struct {
 	clientDriverFactory rpcdriver.RPCClientDriverFactory
 }
 
-func NewClient(baseDir, certsDir string) *Client {
+func NewClient(baseDir, certsDir string, kubeconfig string) *Client {
 	return &Client{
 		baseDir:             baseDir,
 		certsDir:            certsDir,
 		IsDebug:             false,
 		SSHClientType:       ssh.External,
-		Store:               nodestore.NewNodeStore(baseDir, certsDir, certsDir),
+		Store:               nodestore.NewNodeStore(baseDir, certsDir, certsDir, kubeconfig),
 		clientDriverFactory: rpcdriver.NewRPCClientDriverFactory(),
 	}
 }
