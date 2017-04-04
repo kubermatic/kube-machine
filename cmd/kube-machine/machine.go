@@ -97,7 +97,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = filepath.Base(os.Args[0])
 	app.Author = "Kube Machine Contributors"
-	app.Email = "https://github.com/kubermatic/kube-machine-controller"
+	app.Email = "https://github.com/kubermatic/kube-machine"
 
 	app.Commands = commands.Commands
 	app.CommandNotFound = cmdNotFound

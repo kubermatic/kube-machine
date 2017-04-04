@@ -1,4 +1,4 @@
-package: github.com/kubermatic/kube-machine-controller
+package: github.com/kubermatic/kube-machine
 import:
 - package: github.com/docker/machine
   version: ~0.10.0
