@@ -1,6 +1,9 @@
-package: github.com/kubermatic/kube-machine-controller
+package: github.com/kubermatic/kube-machine
 import:
 - package: github.com/docker/machine
   version: ~0.10.0
 - package: k8s.io/client-go
   version: master
+- package: github.com/codegangsta/cli
+  # we cannot update this until https://github.com/urfave/cli/pull/618 is resolved.
+  version: 0302d3914d2a6ad61404584cdae6e6dbc9c03599

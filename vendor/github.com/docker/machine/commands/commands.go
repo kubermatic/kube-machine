@@ -17,7 +17,7 @@ import (
 	"github.com/docker/machine/libmachine/persist"
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/docker/machine/libmachine/ssh"
-	"github.com/kubermatic/kube-machine-controller/pkg/provision"
+	"github.com/kubermatic/kube-machine/pkg/provision"
 )
 
 const (

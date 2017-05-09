@@ -1,4 +1,4 @@
-hash: 1791a63cced32db5911a29256fdcae941abf99ced98c313dc9bed2c2ace6cf68
+hash: 013b029f7cf943238ae9f142c5f8a8e35bb1755523e7c5f804fff7fe7cd44d17
 updated: 2017-03-24T16:48:32.800724867+01:00
 imports:
 - name: github.com/aws/aws-sdk-go
@@ -57,7 +57,7 @@ imports:
 - name: github.com/cenkalti/backoff
   version: 9831e1e25c874e0a0601b6dc43641071414eec7a
 - name: github.com/codegangsta/cli
-  version: 9e5b04886c4bfee2ceba1465b8121057355c4e53
+  version: 0302d3914d2a6ad61404584cdae6e6dbc9c03599
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
